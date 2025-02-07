@@ -1,100 +1,124 @@
 import { google } from 'googleapis';
+import { TIMEZONE_JAPAN, SHEET_HEADERS, timingMap, jobTypeMap } from './constants/sheets';
+import { FormData, TimingInfo, JobTypeInfo } from './types/sheets';
 
-// Google Sheets APIの設定
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
+class GoogleSheetsService {
+  private sheets;
+  private spreadsheetId: string;
 
-const sheets = google.sheets({ version: 'v4', auth });
+  constructor() {
+    const auth = new google.auth.OAuth2(
+      process.env.GOOGLE_OAUTH_CLIENT_ID,
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+      process.env.GOOGLE_OAUTH_REDIRECT_URI
+    );
 
-// 転職希望時期の計算
-function calculateTargetDate(timing: string, registrationDate: Date): Date {
-  const date = new Date(registrationDate);
-  switch (timing) {
-    case 'asap':
-      return date;
-    case '1month':
-      date.setDate(date.getDate() + 30);
-      return date;
-    case '3months':
-      date.setDate(date.getDate() + 90);
-      return date;
-    case '6months':
-      date.setMonth(date.getMonth() + 6);
-      return date;
-    case '1year':
-      date.setFullYear(date.getFullYear() + 1);
-      return date;
-    default:
-      return date;
-  }
-}
-
-// 転職希望時期のマッピング
-const timingMap: Record<string, { id: number; value: string }> = {
-  'asap': { id: 1, value: 'なるべく早く' },
-  '1month': { id: 2, value: '1ヶ月以内' },
-  '3months': { id: 3, value: '3ヶ月以内' },
-  '6months': { id: 4, value: '6ヶ月以内' },
-  '1year': { id: 5, value: '1年以内' },
-};
-
-// 希望職種のマッピング
-const jobTypeMap: Record<string, { id: number; value: string; category: number | null }> = {
-  'truck': { id: 101, value: 'トラックドライバー', category: 1 },
-  'taxi': { id: 102, value: 'タクシードライバー', category: 1 },
-  'bus': { id: 103, value: 'バスドライバー', category: 1 },
-  'waste': { id: 104, value: '廃棄物収集運搬ドライバー', category: 1 },
-  'sales': { id: 105, value: 'ルート営業', category: 1 },
-  'manager': { id: 106, value: '運行管理者', category: 1 },
-  'other': { id: 9999, value: 'その他', category: null },
-};
-
-export async function appendToSheet(values: any[]) {
-  try {
-    const registrationDate = new Date();
-    const timing = values[5] as string; // timingの値を取得
-    const jobType = values[6] as string; // jobTypeの値を取得
-
-    // 転職希望時期の情報を取得
-    const timingInfo = timingMap[timing] || { id: null, value: timing };
-    const targetDate = calculateTargetDate(timing, registrationDate);
-
-    // 希望職種の情報を取得
-    const jobTypeInfo = jobTypeMap[jobType] || { id: 9999, value: jobType, category: null };
-
-    // スプレッドシートに書き込むデータを整形
-    const rowData = [
-      ...values.slice(0, 5), // 姓、名、姓（かな）、名（かな）、生年月日
-      registrationDate.toISOString(), // 登録時間
-      timingInfo.id, // 転職希望時期ID
-      timingInfo.value, // 転職希望時期の表示値
-      targetDate.toISOString(), // 転職希望時期の目標日
-      jobTypeInfo.id, // 希望職種ID
-      jobTypeInfo.value, // 希望職種の表示値
-      jobTypeInfo.category, // 希望職種カテゴリ
-      ...values.slice(7), // 都道府県以降の情報
-    ];
-
-    const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-    const range = 'Sheet1!A:O'; // 列を増やしたので範囲を更新
-
-    const response = await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [rowData],
-      },
+    auth.setCredentials({
+      access_token: process.env.GOOGLE_OAUTH_ACCESS_TOKEN,
+      refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
+      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      token_type: 'Bearer',
     });
 
-    return response.data;
-  } catch (error) {
-    console.error('Error appending to sheet:', error);
-    throw error;
+    this.sheets = google.sheets({ version: 'v4', auth });
+    this.spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID!;
+  }
+
+  private calculateTargetDate(timing: string, registrationDate: Date): Date {
+    const date = new Date(registrationDate);
+    switch (timing) {
+      case 'asap': return date;
+      case '1month': return new Date(date.setDate(date.getDate() + 30));
+      case '3months': return new Date(date.setDate(date.getDate() + 90));
+      case '6months': return new Date(date.setMonth(date.getMonth() + 6));
+      case '1year': return new Date(date.setFullYear(date.getFullYear() + 1));
+      default: return date;
+    }
+  }
+
+  private formatDateTime(date: Date): string {
+    return date.toLocaleString('ja-JP', {
+      timeZone: TIMEZONE_JAPAN,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).replace(/\//g, '-');
+  }
+
+  private formatDate(date: Date): string {
+    return date.toLocaleString('ja-JP', {
+      timeZone: TIMEZONE_JAPAN,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
+  }
+
+  private async initializeSheet(): Promise<void> {
+    const range = 'Sheet1!A:P';
+    await this.sheets.spreadsheets.values.clear({
+      spreadsheetId: this.spreadsheetId,
+      range,
+    });
+
+    await this.sheets.spreadsheets.values.update({
+      spreadsheetId: this.spreadsheetId,
+      range: 'Sheet1!A1:P1',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [SHEET_HEADERS],
+      },
+    });
+  }
+
+  private prepareRowData(formData: FormData): any[] {
+    const registrationDate = new Date();
+    const birthDate = formData.birthDate;
+    const timingInfo = timingMap[formData.timing] || { id: null, value: formData.timing };
+    const targetDate = this.calculateTargetDate(formData.timing, registrationDate);
+    const jobTypeInfo = jobTypeMap[formData.jobType] || { id: 9999, value: formData.jobType, category: null };
+
+    return [
+      formData.lastName,
+      formData.firstName,
+      formData.lastNameKana,
+      formData.firstNameKana,
+      birthDate,
+      timingInfo.id,
+      timingInfo.value,
+      this.formatDate(targetDate),
+      jobTypeInfo.id,
+      jobTypeInfo.value,
+      jobTypeInfo.category,
+      formData.prefecture,
+      formData.city,
+      formData.phone,
+      formData.email,
+      this.formatDateTime(registrationDate),
+    ];
+  }
+
+  public async appendToSheet(formData: FormData): Promise<any> {
+    try {
+      const rowData = this.prepareRowData(formData);
+      const response = await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: 'Sheet1!A:P',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [rowData],
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error appending to sheet:', error);
+      throw new Error('スプレッドシートへのデータ追加に失敗しました');
+    }
   }
 }
+
+export const googleSheetsService = new GoogleSheetsService();

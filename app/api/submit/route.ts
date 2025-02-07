@@ -1,27 +1,28 @@
 import { NextResponse } from 'next/server';
-import { appendToSheet } from '@/lib/google-sheets';
+import { googleSheetsService } from '@/lib/google-sheets';
+import { FormData } from '@/lib/types/sheets';
 
 export async function POST(request: Request) {
   try {
     const data = await request.json();
     
     // フォームデータをスプレッドシートの行形式に変換
-    const rowData = [
-      data.lastName,
-      data.firstName,
-      data.lastNameKana,
-      data.firstNameKana,
-      data.birthDate,
-      data.timing,
-      data.jobType,
-      data.prefecture,
-      data.city,
-      data.phone,
-      data.email,
-    ];
+    const rowData: FormData = {
+      lastName: data.lastName,
+      firstName: data.firstName,
+      lastNameKana: data.lastNameKana,
+      firstNameKana: data.firstNameKana,
+      birthDate: data.birthDate,
+      timing: data.timing,
+      jobType: data.jobType,
+      prefecture: data.prefecture,
+      city: data.city,
+      phone: data.phone,
+      email: data.email,
+    };
 
     // スプレッドシートに追加
-    await appendToSheet(rowData);
+    await googleSheetsService.appendToSheet(rowData);
 
     return NextResponse.json({ success: true });
   } catch (error) {
