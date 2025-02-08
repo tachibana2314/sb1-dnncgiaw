@@ -26,9 +26,20 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error submitting form:', error);
+    // エラーオブジェクトの詳細情報をログ出力
+    console.error('Form submission error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error
+    });
+
+    // クライアントへのレスポンスにもエラーメッセージを含める
+    const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
     return NextResponse.json(
-      { error: 'Failed to submit form' },
+      { 
+        error: 'Failed to submit form',
+        details: errorMessage 
+      },
       { status: 500 }
     );
   }
