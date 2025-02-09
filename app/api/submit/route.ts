@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { googleSheetsService } from '@/lib/google-sheets';
+import { GoogleSheetsService } from '@/lib/google/sheets-service';
+import { SESService } from '@/lib/aws/ses-service';
 import { FormData } from '@/lib/types/sheets';
 
 export async function POST(request: Request) {
@@ -22,7 +23,11 @@ export async function POST(request: Request) {
     };
 
     // スプレッドシートに追加
-    await googleSheetsService.appendToSheet(rowData);
+    await GoogleSheetsService.appendToSheet(rowData);
+
+    // メール送信
+    const fullName = `${data.lastName} ${data.firstName}`;
+    await SESService.sendConfirmationEmail(data.email, fullName);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,5 +1,5 @@
-#!/bin/bash -x
+#!/bin/bash
 
 [ ! -d '/tmp/cache' ] && mkdir -p /tmp/cache
 
-exec node server.js
+HOSTNAME=0.0.0.0 exec node server.js

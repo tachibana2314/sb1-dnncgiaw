@@ -1,6 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-
 Parameters:
   GoogleOAuthClientId:
     Type: String
@@ -14,7 +13,6 @@ Parameters:
   GoogleSheetsSpreadsheetId:
     Type: String
     Description: Google Sheets Spreadsheet ID
-
 Globals:
   Function:
     Timeout: 30
@@ -24,54 +22,61 @@ Globals:
         PORT: 8000
         AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
         RUST_LOG: info
-        GOOGLE_OAUTH_CLIENT_ID: !Ref GoogleOAuthClientId
-        GOOGLE_OAUTH_CLIENT_SECRET: !Ref GoogleOAuthClientSecret
-        GOOGLE_OAUTH_REFRESH_TOKEN: !Ref GoogleOAuthRefreshToken
-        GOOGLE_SHEETS_SPREADSHEET_ID: !Ref GoogleSheetsSpreadsheetId
-
+        GOOGLE_OAUTH_CLIENT_ID:
+          Ref: GoogleOAuthClientId
+        GOOGLE_OAUTH_CLIENT_SECRET:
+          Ref: GoogleOAuthClientSecret
+        GOOGLE_OAUTH_REFRESH_TOKEN:
+          Ref: GoogleOAuthRefreshToken
+        GOOGLE_SHEETS_SPREADSHEET_ID:
+          Ref: GoogleSheetsSpreadsheetId
 Resources:
   NextjsFunction:
     Type: AWS::Serverless::Function
     Metadata:
-      Dockerfile: Dockerfile
-      DockerContext: .
+      DockerContext: /Users/user/sb1-dnncgiaw
       DockerTag: latest
+      Dockerfile: Dockerfile
+      SamResourceId: NextjsFunction
     Properties:
       PackageType: Image
       ImageConfig:
-        Command: ["node", "server.js"]
-      Architectures: 
-        - x86_64
+        Command:
+        - node
+        - server.js
+      Architectures:
+      - x86_64
       Layers:
-        - !Sub arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerX86:20
-
+      - Fn::Sub: arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerX86:20
+      ImageUri: nextjsfunction:latest
   NextjsApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: $default
       CorsConfiguration:
         AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
-          - OPTIONS
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
         AllowHeaders:
-          - Content-Type
-          - Authorization
+        - Content-Type
+        - Authorization
         AllowOrigins:
-          - "*"
+        - '*'
         MaxAge: 600
-
   LambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref NextjsFunction
+      FunctionName:
+        Ref: NextjsFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${NextjsApi}/*
-
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${NextjsApi}/*
 Outputs:
   ApiEndpoint:
-    Description: "API Gateway endpoint URL"
-    Value: !Sub https://${NextjsApi}.execute-api.${AWS::Region}.amazonaws.com/
+    Description: API Gateway endpoint URL
+    Value:
+      Fn::Sub: https://${NextjsApi}.execute-api.${AWS::Region}.amazonaws.com/

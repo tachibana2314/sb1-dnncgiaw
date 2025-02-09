@@ -1,4 +1,3 @@
-"use client";
 
 import { JobApplicationForm } from "@/components/job-application-form";
 

@@ -1,27 +1,23 @@
-FROM node:18-alpine AS base
+FROM public.ecr.aws/docker/library/node:18-slim as builder
 
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package*.json ./
 RUN npm ci
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-COPY .env.local .env.local
 RUN npm run build
 
-FROM base AS runner
-# Install Lambda Web Adapter
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.0 /lambda-adapter /opt/extensions/lambda-adapter
-
+FROM public.ecr.aws/docker/library/node:18-slim as runner
 WORKDIR /app
+
 ENV NODE_ENV=production
 ENV PORT=3000
+
+COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/.env.local .env.local
+
+# Lambda Web Adapterをインストール
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.0 /lambda-adapter /opt/extensions/lambda-adapter
+
 EXPOSE 3000
 CMD ["node", "server.js"]
