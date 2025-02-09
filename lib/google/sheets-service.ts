@@ -4,7 +4,7 @@ import { cryptoService } from '../utils/crypto';
 import { sheetsClient } from './sheets-client';
 
 class GoogleSheetsService {
-  private spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID!;
+  private spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID!;
 
   private calculateTargetDate(timing: string, registrationDate: Date): Date {
     const date = new Date(registrationDate);
