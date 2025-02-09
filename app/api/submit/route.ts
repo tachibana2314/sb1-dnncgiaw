@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleSheetsService } from '@/lib/google/sheets-service';
+import { googleSheetsService } from '@/lib/google/sheets-service';
 import { SESService } from '@/lib/aws/ses-service';
 import { FormData } from '@/lib/types/sheets';
 
@@ -9,25 +9,25 @@ export async function POST(request: Request) {
     
     // フォームデータをスプレッドシートの行形式に変換
     const rowData: FormData = {
-      lastName: data.lastName,
-      firstName: data.firstName,
-      lastNameKana: data.lastNameKana,
-      firstNameKana: data.firstNameKana,
-      birthDate: data.birthDate,
-      timing: data.timing,
-      jobType: data.jobType,
-      prefecture: data.prefecture,
-      city: data.city,
-      phone: data.phone,
-      email: data.email,
+      lastName: data.lastName, // 姓
+      firstName: data.firstName, // 名
+      lastNameKana: data.lastNameKana, // 姓（かな）
+      firstNameKana: data.firstNameKana, // 名（かな）
+      birthDate: data.birthDate, // 生年月日
+      timing: data.timing, // 転職希望時期
+      jobType: data.jobType, // 希望職種
+      prefecture: data.prefecture, // 都道府県
+      city: data.city, // 市区町村
+      phone: data.phone, // 電話番号
+      email: data.email, // メールアドレス
     };
 
     // スプレッドシートに追加
-    await GoogleSheetsService.appendToSheet(rowData);
+    await googleSheetsService.appendToSheet(rowData);
 
     // メール送信
-    const fullName = `${data.lastName} ${data.firstName}`;
-    await SESService.sendConfirmationEmail(data.email, fullName);
+    // const fullName = `${data.lastName} ${data.firstName}`;
+    // await SESService.sendConfirmationEmail(data.email, fullName);
 
     return NextResponse.json({ success: true });
   } catch (error) {
